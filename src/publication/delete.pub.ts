@@ -7,7 +7,7 @@
 // Deletes logical replication publication
 
 import { Client } from "pg";
-import { config_env } from "../config";
+import { config_env } from "../config/config";
 
 const primary = new Client(config_env.primary_db_env);
 
@@ -26,7 +26,7 @@ async function deletePublication() {
     FROM pg_publication
     WHERE pubname = $1
   `,
-    [PUBLICATION_NAME]
+    [PUBLICATION_NAME],
   );
 
   if (publicationExists.rowCount === 0) {
@@ -52,7 +52,7 @@ async function deletePublication() {
       state
     FROM pg_stat_replication
     WHERE application_name IS NOT NULL
-  `
+  `,
   );
 
   // ----------------------------------------
@@ -61,7 +61,7 @@ async function deletePublication() {
 
   if (activeSubscriptions.rowCount && activeSubscriptions.rowCount > 0) {
     console.log(
-      "cannot delete publication - active subscriptions still connected"
+      "cannot delete publication - active subscriptions still connected",
     );
 
     console.table(activeSubscriptions.rows);

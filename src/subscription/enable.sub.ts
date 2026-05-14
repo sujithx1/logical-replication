@@ -3,7 +3,7 @@
 // npm install pg
 
 import { Client } from "pg";
-import { config_env } from "../config";
+import { config_env } from "../config/config";
 
 const replica = new Client(config_env.replica_db_env);
 

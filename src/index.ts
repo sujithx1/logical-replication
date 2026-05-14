@@ -23,7 +23,7 @@
 // --------------------------------------------------
 
 import { Client } from "pg";
-import { config_env } from "./config";
+import { config_env } from "./config/config";
 
 // --------------------------------------------------
 // PRIMARY DATABASE CONNECTION
@@ -47,11 +47,11 @@ const replica = new Client(config_env.replica_db_env);
 // from this connection.
 // --------------------------------------------------
 
-const replicationConnectionString = config_env.replica_db_url;
+const replicationConnectionString = config_env.prymary_db_url;
 // --------------------------------------------------
 // PUBLICATION NAME
 // --------------------------------------------------
-
+console.log('replication connectionn string', replicationConnectionString);
 const PUBLICATION_NAME = config_env.publication_name;
 
 // --------------------------------------------------
@@ -155,12 +155,12 @@ async function createSubscription() {
   // ----------------------------------------
 
   if (subscriptionExists.rowCount === 0) {
-    await replica.query(`
+   await replica.query(`
       CREATE SUBSCRIPTION ${SUBSCRIPTION_NAME}
       CONNECTION '${replicationConnectionString}'
-      PUBLICATION ${PUBLICATION_NAME};
+      PUBLICATION ${PUBLICATION_NAME}
+      WITH (copy_data = false);
     `);
-
     console.log("subscription created");
   } else {
     console.log("subscription already exists");
@@ -267,41 +267,41 @@ async function monitorReplicationSlots() {
 //
 // --------------------------------------------------
 
-async function testReplication() {
-  console.log("\nTESTING REPLICATION\n");
+// async function testReplication() {
+//   console.log("\nTESTING REPLICATION\n");
 
-  // ----------------------------------------
-  // INSERT INTO PRIMARY
-  // ----------------------------------------
+//   // ----------------------------------------
+//   // INSERT INTO PRIMARY
+//   // ----------------------------------------
 
-  await primary.query(`
-    INSERT INTO users(name, balance)
-    VALUES ('Sujith', 100);
-  `);
+//   await primary.query(`
+//     INSERT INTO master.user(name, balance)
+//     VALUES ('Sujith', 100);
+//   `);
 
-  console.log("inserted into primary");
+//   console.log("inserted into primary");
 
-  // ----------------------------------------
-  // WAIT FOR REPLICATION
-  // ----------------------------------------
+//   // ----------------------------------------
+//   // WAIT FOR REPLICATION
+//   // ----------------------------------------
 
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+//   await new Promise((resolve) => setTimeout(resolve, 2000));
 
-  // ----------------------------------------
-  // READ FROM REPLICA
-  // ----------------------------------------
+//   // ----------------------------------------
+//   // READ FROM REPLICA
+//   // ----------------------------------------
 
-  const result = await replica.query(`
-    SELECT *
-    FROM users
-    ORDER BY id DESC
-    LIMIT 5;
-  `);
+//   const result = await replica.query(`
+//     SELECT *
+//     FROM users
+//     ORDER BY id DESC
+//     LIMIT 5;
+//   `);
 
-  console.log("\nREPLICA DATA\n");
+//   console.log("\nREPLICA DATA\n");
 
-  console.table(result.rows);
-}
+//   console.table(result.rows);
+// }
 
 // --------------------------------------------------
 // MAIN FLOW
@@ -333,6 +333,12 @@ async function setupLogicalReplication() {
   // MONITORING
   // ----------------------------------------
 
+  await new Promise((resolve) =>
+  setTimeout(resolve, 5000)
+);
+
+
+
   await monitorPrimaryReplication();
 
   await monitorReplicaSubscription();
@@ -343,7 +349,6 @@ async function setupLogicalReplication() {
   // TEST REPLICATION
   // ----------------------------------------
 
-  await testReplication();
 }
 
 // --------------------------------------------------

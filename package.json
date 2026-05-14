@@ -1,6 +1,10 @@
 {
   "name": "replication",
   "private": true,
+  "scripts": {
+    "test": "bun run src/test.ts",
+  "d-pub": "bun run src/subscription/delete.sub.ts && bun run src/publication/delete.pub.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
@@ -8,7 +12,10 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@magadhtech/mds-schema": "1.0.300",
     "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
     "pg": "^8.20.0"
   }
 }
