@@ -1,0 +1,57 @@
+
+
+
+
+
+services:
+  postgres_pub:
+    image: postgres:18
+    container_name: postgres_pub
+
+    environment:
+      POSTGRES_USER: sujith
+      POSTGRES_PASSWORD: Sujith@123
+      POSTGRES_DB: mds
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - pg_pub_data:/var/lib/postgresql
+
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
+
+  postgres_sub:
+    image: postgres:18
+    container_name: postgres_sub
+
+    environment:
+      POSTGRES_USER: sujith
+      POSTGRES_PASSWORD: Sujith@123
+      POSTGRES_DB: replica_mds
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - pg_sub_data:/var/lib/postgresql
+
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
+
+volumes:
+  pg_pub_data:
+  pg_sub_data:

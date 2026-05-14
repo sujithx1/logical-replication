@@ -4,20 +4,20 @@ import { eq } from "drizzle-orm"
 
 
 
-// export const insertUser = async () => {
+export const insertUser = async () => {
 
 
-//   await pdb.insert(UserSchema).values
-//   ({
-//     name:'sujith-32',
-//     phone:'1111111123',
+  await pdb.insert(UserSchema).values
+  ({
+    name:'sujith-32',
+    phone:'1111111123',
 
-//   })
+  })
 
-//   console.log("user inserted")
-// }
+  console.log("user inserted")
+}
 
-// insertUser().catch(console.error)
+insertUser().catch(console.error)
 
 
 
