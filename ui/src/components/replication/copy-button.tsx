@@ -11,19 +11,39 @@ interface Props {
 export default function CopyButton({
   value,
 }: Props) {
-  const [copied, setCopied] =
-    useState(false);
+  const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(value);
+    try {
+      // Modern clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        // Fallback for older browsers / non-https
+        const textArea = document.createElement("textarea");
+        textArea.value = value;
 
-    setCopied(true);
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
 
-    setTimeout(() => {
-      setCopied(false);
-    }, 2000);
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        document.execCommand("copy");
+
+        textArea.remove();
+      }
+
+      setCopied(true);
+
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
   };
-
   return (
     <Button
       size="sm"

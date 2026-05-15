@@ -6,13 +6,40 @@ interface Props {
   value: string;
 }
 
-function CopyButton({ value }: { value: string }) {
+
+export function CopyButton({ value }: Props) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      // Modern clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        // Fallback for older browsers / non-https
+        const textArea = document.createElement("textarea");
+        textArea.value = value;
+
+        textArea.style.position = "fixed";
+        textArea.style.left = "-999999px";
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        document.execCommand("copy");
+
+        textArea.remove();
+      }
+
+      setCopied(true);
+
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
   };
 
   return (
@@ -34,7 +61,6 @@ function CopyButton({ value }: { value: string }) {
     </button>
   );
 }
-
 function LineNumbers({ content }: { content: string }) {
   const lines = content.split("\n");
   return (

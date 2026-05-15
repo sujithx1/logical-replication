@@ -10,14 +10,7 @@ import {
   CheckCircle2,
   Circle,
 } from "lucide-react";
-
-interface DbConfig {
-  host: string;
-  port: number;
-  database: string;
-  username: string;
-  password: string;
-}
+import type { DbConfig } from "@/types/replication";
 
 interface Props {
   value: DbConfig;
@@ -59,7 +52,7 @@ const FIELDS: {
     hint: "Name of the database to replicate",
   },
   {
-    key: "username",
+    key: "user",
     label: "Username",
     placeholder: "e.g. replicator",
     icon: User,
@@ -228,7 +221,7 @@ export default function PrimaryDbForm({ value, onChange }: Props) {
             </p>
             <code className="font-mono text-[12px] text-slate-600 break-all">
               postgresql://
-              <span className="text-blue-600">{value.username || "user"}</span>
+              <span className="text-blue-600">{value.user || "user"}</span>
               :
               <span className="text-slate-400">{"*".repeat(value.password ? 8 : 4)}</span>
               @
