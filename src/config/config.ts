@@ -1,4 +1,4 @@
-interface ConfigEnv {
+export interface ConfigEnv {
   primary_db_env: {
     host: string;
     port: number;

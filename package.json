@@ -2,8 +2,10 @@
   "name": "replication",
   "private": true,
   "scripts": {
-    "test": "bun run src/test.ts",
-  "d-pub": "bun run src/subscription/delete.sub.ts && bun run src/publication/delete.pub.ts"
+    "d-pub": "bun run src/subscription/delete.sub.ts && bun run src/publication/delete.pub.ts",
+    "dev": "bun run src/server.ts",
+    "build": "bun build src/server.ts --outdir dist --target bun",
+    "start": "bun run dist/server.js"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -16,6 +18,8 @@
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
-    "pg": "^8.20.0"
+    "hono": "^4.12.18",
+    "pg": "^8.20.0",
+    "zod": "^4.4.3"
   }
 }
