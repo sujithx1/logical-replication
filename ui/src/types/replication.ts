@@ -13,6 +13,6 @@ export interface DbConfig {
 }
 
 export interface ReplicaNode extends DbConfig {
-  id: string;
+  id?: string;
   subscription_name: string;
 }
