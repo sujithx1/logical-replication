@@ -42,6 +42,7 @@ export const CreateReplicationController = async (c: Context) => {
 
   const body = parsed.data;
 
+  console.log("replication body", body);
   // ----------------------------------------
   // VALIDATE SQL IDENTIFIER NAMES
   // ----------------------------------------
@@ -98,13 +99,14 @@ export const CreateReplicationController = async (c: Context) => {
 
   const primary = new Client(body.primary);
 
-  const replicationConnectionString = `postgres://${body.primary.user}:${body.primary.password}@${body.primary.host}:${body.primary.port}/${body.primary.database}`;
+  const replicationConnectionString = `postgres://${encodeURIComponent(body.primary.user)}:${encodeURIComponent(body.primary.password)}@${body.primary.host}:${body.primary.port}/${body.primary.database}`;
 
   try {
     await primary.connect();
 
     // ----------------------------------------
-    // CHECK PUBLICATION EXISTS
+    // ----------------------------------------
+    // CREATE PUBLICATION (IF NOT EXISTS)
     // ----------------------------------------
 
     const publicationExists = await primary.query(
@@ -116,34 +118,25 @@ export const CreateReplicationController = async (c: Context) => {
       [body.publication_name],
     );
 
-    if (publicationExists.rowCount !== 0) {
-      return c.json(
-        {
-          error: "Publication already exists",
-        },
-        400,
-      );
+    if (publicationExists.rowCount === 0) {
+      await primary.query(`
+        CREATE PUBLICATION ${body.publication_name}
+        FOR ALL TABLES;
+      `);
+      console.log(`Publication ${body.publication_name} created`);
+    } else {
+      console.log(`Publication ${body.publication_name} already exists. Reusing it.`);
     }
 
-    // ----------------------------------------
-    // CREATE PUBLICATION
-    // ----------------------------------------
+    // Track successfully created subscriptions for rollback purposes
+    const createdSubscriptions: { config: any; name: string }[] = [];
 
-    await primary.query(`
-      CREATE PUBLICATION ${body.publication_name}
-      FOR ALL TABLES;
-    `);
-
-    console.log(`Publication ${body.publication_name} created`);
-
-    // ----------------------------------------
-    // CREATE SUBSCRIPTIONS
-    // ----------------------------------------
-
-    await Promise.all(
-      body.secondary.map(async (replicaConfig) => {
+    try {
+      // ----------------------------------------
+      // CREATE SUBSCRIPTIONS
+      // ----------------------------------------
+      for (const replicaConfig of body.secondary) {
         const replica = new pg.Client(replicaConfig);
-
         const subscriptionName = `sub_${replicaConfig.database}`
           .toLowerCase()
           .replace(/[^a-z0-9_]/g, "_");
@@ -159,24 +152,52 @@ export const CreateReplicationController = async (c: Context) => {
           `);
 
           console.log(`${subscriptionName} created`);
+          createdSubscriptions.push({ config: replicaConfig, name: subscriptionName });
         } catch (err: any) {
-          // duplicate_object
+          // duplicate_object is acceptable, but let's register it for tracking/rollback if we didn't create it new
           if (err.code === "42710") {
             console.log(`${subscriptionName} already exists`);
           } else {
-            console.error(err);
+            console.error(`Error creating subscription ${subscriptionName}:`, err);
             throw err;
           }
         } finally {
           await replica.end();
         }
-      }),
-    );
+      }
 
-    return c.json({
-      success: true,
-      message: "Replication setup completed successfully",
-    });
+      return c.json({
+        success: true,
+        message: "Replication setup completed successfully",
+      });
+    } catch (subscriptionError: any) {
+      console.log("Rolling back replication setup due to subscription failure...");
+
+      // Rollback: delete any created subscriptions
+      for (const sub of createdSubscriptions) {
+        const replicaRollback = new pg.Client(sub.config);
+        try {
+          await replicaRollback.connect();
+          await replicaRollback.query(`ALTER SUBSCRIPTION ${sub.name} DISABLE`);
+          await replicaRollback.query(`DROP SUBSCRIPTION ${sub.name}`);
+          console.log(`Rollback: Dropped subscription ${sub.name}`);
+        } catch (rollbackErr) {
+          console.error(`Failed to rollback subscription ${sub.name}:`, rollbackErr);
+        } finally {
+          await replicaRollback.end();
+        }
+      }
+
+      // Rollback: delete publication
+      try {
+        await primary.query(`DROP PUBLICATION ${body.publication_name}`);
+        console.log(`Rollback: Dropped publication ${body.publication_name}`);
+      } catch (rollbackErr) {
+        console.error(`Failed to rollback publication ${body.publication_name}:`, rollbackErr);
+      }
+
+      throw subscriptionError;
+    }
   } catch (err: any) {
     console.error(err);
     
