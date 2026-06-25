@@ -1,570 +1,159 @@
-# PostgreSQL Logical Replication
+# 🚀 PostgreSQL Logical Replication Dashboard & Control Plane
 
-A lightweight Node.js + PostgreSQL setup for managing logical replication between a PRIMARY database and a REPLICA database using PostgreSQL publications and subscriptions.
-
-This project automates:
-
-- Creating publications
-- Creating subscriptions
-- Monitoring replication health
-- Monitoring replication slots
-- Testing replication
-- Enabling subscriptions
-- Disabling subscriptions
-- Deleting subscriptions
-- Deleting publications
+A modern, type-safe full-stack admin dashboard and CRUD panel designed to configure, monitor, and manage PostgreSQL logical replication streams between primary and replica clusters.
 
 ---
 
-# Architecture
+## 🏗️ Architecture & How It Works
+
+This project automates the orchestration of publications on primary databases and subscriptions on secondary databases. 
 
 ```text
-PRIMARY DATABASE
-        │
-        ▼
-   PUBLICATION
-        │
-        ▼
-  WAL CHANGE STREAM
-        │
-        ▼
-   SUBSCRIPTION
-        │
-        ▼
-REPLICA DATABASE
+  [ PRIMARY DATABASE ] (Port 5432)
+           │
+           ├── Writes to WAL (Write-Ahead Log)
+           ▼
+  [ PUBLICATION ] (e.g. pg_logical_replication)
+           │
+           ├── Decodes WAL changes into a logical stream
+           ▼
+  [ REPLICATION SLOT ] (Maintains WAL state for subscriber)
+           │
+           └── Stream connection (Decrypted credentials)
+           ▼
+  [ SUBSCRIPTION ] (Runs on Replica)
+           │
+           └── Pulls and applies DML changes
+           ▼
+  [ REPLICA DATABASE ] (Port 5433)
 ```
 
 ---
 
-# Features
+## ✨ Features
 
-## Included
+### 🔒 User Authentication & Authorization
+* **JWT Session Tokens**: Secure session cookies/token auth protect all replication endpoints.
+* **Role-Based Profiles**:
+  * **Standard User**: Can configure, view, update, and manage their own replication setups.
+  * **Admin User**: Accesses a global dashboard to inspect and check replication status metrics of *all* users' configurations.
 
-- Create publication
-- Create subscription
-- Monitor primary replication
-- Monitor replica subscription
-- Monitor replication slots
-- Test replication flow
-- Enable subscription
-- Disable subscription
-- Delete subscription
-- Delete publication
+### 🛡️ Credential Privacy & Encryption
+* **At-Rest Password Encryption**: Primary and replica credentials passwords are encrypted using `AES-256-GCM` before database persistence.
+* **Zero-Leak Admin Views**: While admins can monitor setups, the backend **masks** all database passwords (`"********"`), preventing admins from leaking passwords.
+
+### ⚡ Replication CRUD Operations
+* **Setup Replication**: Auto-provisions publications on the primary host and subscriptions on replica hosts.
+* **Live Status Reports**: Real-time status checks showing streaming states (`pg_stat_replication`), active slots (`pg_replication_slots`), and worker replication logs (`pg_stat_subscription`).
+* **Manage Subscription State**: Enable or disable target replica subscriptions with a single toggle.
+* **Clean Teardown**: Automatically drops subscriptions on replica nodes, removes publications on primary, and clears database configurations safely.
 
 ---
 
-# Installation
+## 🔮 Coming Soon Features
 
-## Install dependencies
+* **Bi-directional Replication Setup**: Support writing on both primary and replica tables, syncing data in both directions.
+* **Multi-replica scale monitor**: Dynamic UI dashboard visualizing cluster health topology charts for setups with more than 2 target replicas.
+* **UI Replication Log stream**: A real-time terminal widget showing the live decoding log streams from the database engine.
 
+---
+
+## 🛠️ Getting Started
+
+### Prerequisites
+* [Node.js](https://nodejs.org/) (or Bun runtime)
+* [Docker & Docker Compose](https://www.docker.com/)
+
+---
+
+### Step 1: Clone the Repository
 ```bash
-npm install pg
+git clone https://github.com/yourusername/logical-replication.git
+cd logical-replication
 ```
 
 ---
 
-# PostgreSQL Requirements
+### Step 2: Configure Environment Variables
 
-Logical replication requires PostgreSQL configuration changes on the PRIMARY database.
-
-Edit:
-
-```conf
-postgresql.conf
-```
-
-Add:
-
-```conf
-wal_level = logical
-max_replication_slots = 10
-max_wal_senders = 10
-```
-
-Then restart PostgreSQL.
-
----
-
-# Required Database Permissions
-
-The replication user must have:
-
-```sql
-REPLICATION
-LOGIN
-```
-
-Example:
-
-```sql
-CREATE ROLE replicator
-WITH REPLICATION LOGIN PASSWORD 'password';
-```
-
----
-
-# Environment Configuration
-
-Example config:
-
-```ts
-export const config_env = {
-  primary_db_env: {
-    host: "localhost",
-    port: 5432,
-    user: "postgres",
-    password: "password",
-    database: "primary_db",
-  },
-
-  replica_db_env: {
-    host: "localhost",
-    port: 5433,
-    user: "postgres",
-    password: "password",
-    database: "replica_db",
-  },
-
-  replica_db_url:
-    "postgres://replicator:password@localhost:5432/primary_db",
-
-  publication_name: "app_publication",
-
-  subscription_name: "app_subscription",
-
-  logical_tables: [
-    "users",
-    "transactions",
-  ],
-};
-```
-
----
-
-# Important Notes
-
-## Existing Schema Required
-
-This project does NOT create tables.
-
-Both databases must already contain:
-
-- same schema
-- same table structure
-- same columns
-
-Logical replication only syncs data changes.
-
----
-
-# What Logical Replication Replicates
-
-## Replicated
-
-- INSERT
-- UPDATE
-- DELETE
-
-## NOT Replicated
-
-- CREATE TABLE
-- ALTER TABLE
-- CREATE INDEX
-- DDL changes
-
----
-
-# How Replication Works
-
-```text
-INSERT / UPDATE / DELETE
-            │
-            ▼
-        WAL Generated
-            │
-            ▼
-     Logical Decoding
-            │
-            ▼
-      Publication Stream
-            │
-            ▼
- Subscription Receives WAL
-            │
-            ▼
- Replica Applies Changes
-```
-
----
-
-# Usage
-
-## Run Replication Setup
-
+#### 1. Backend Config
+Copy the environment template in the root directory:
 ```bash
-ts-node logical-replication.ts
+cp .env.example .env
+```
+Open `.env` and configure:
+```ini
+DATABASE_URL=postgresql://sujith:Sujith@123@localhost:5432/mds
+JWT_SECRET=your_jwt_secret_key_minimum_length_8
+ENCRYPTION_KEY=your_at_rest_encryption_key_minimum_length_8
+PORT=3000
+```
+
+#### 2. Frontend Config
+Copy the environment template in the `ui` directory:
+```bash
+cd ui
+cp .env.example .env
+cd ..
+```
+Configure `ui/.env`:
+```ini
+VITE_BASE_URL=http://localhost:3000/api/replica
 ```
 
 ---
 
-# Functions
+### Step 3: Run the Database Infrastructure
+Spin up the primary and replica databases defined in the Docker Compose file:
+```bash
+docker compose -f docker/docker-compose.yml up -d
+```
+* **Primary DB**: `localhost:5432` (DB: `primary_db`, User: `sujith`)
+* **Replica DB**: `localhost:5433` (DB: `replica_db`, User: `sujith`)
 
 ---
 
-## Create Publication
-
-Runs on PRIMARY database.
-
-Defines which tables should replicate.
-
-```ts
-await createPublication();
+### Step 4: Run the Backend Server
+From the root directory:
+```bash
+bun install
+bun dev
 ```
-
-### All Tables
-
-```sql
-CREATE PUBLICATION app_publication
-FOR ALL TABLES;
-```
-
-### Specific Tables
-
-```sql
-CREATE PUBLICATION app_publication
-FOR TABLE users, transactions;
-```
+The server will boot and initialize the tables using Drizzle on port `3000`.
 
 ---
 
-## Create Subscription
-
-Runs on REPLICA database.
-
-Subscribes replica to WAL stream from primary.
-
-```ts
-await createSubscription();
+### Step 5: Run the Frontend App
+From the `ui` directory:
+```bash
+cd ui
+bun install
+bun dev
 ```
-
-Example:
-
-```sql
-CREATE SUBSCRIPTION app_subscription
-CONNECTION 'postgres://user:password@host:5432/db'
-PUBLICATION app_publication;
-```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ---
 
-## Enable Subscription
-
-Resume replication.
-
-```ts
-await enableSubscription();
-```
-
-Example:
-
-```sql
-ALTER SUBSCRIPTION app_subscription ENABLE;
-```
-
----
-
-## Disable Subscription
-
-Pause replication.
-
-Useful during maintenance.
-
-```ts
-await disableSubscription();
-```
-
-Example:
-
-```sql
-ALTER SUBSCRIPTION app_subscription DISABLE;
-```
-
----
-
-## Delete Subscription
-
-Removes replica subscription.
-
-```ts
-await deleteSubscription();
-```
-
-Example:
-
-```sql
-DROP SUBSCRIPTION app_subscription;
-```
-
----
-
-## Delete Publication
-
-Removes publication from primary.
-
-```ts
-await deletePublication();
-```
-
-Example:
-
-```sql
-DROP PUBLICATION app_publication;
-```
-
----
-
-# Monitoring
-
----
-
-## Monitor Primary Replication
-
-Uses:
-
-```sql
-pg_stat_replication
-```
-
-Shows:
-
-- replica connection status
-- streaming state
-- replication lag
-- WAL positions
-
-```ts
-await monitorPrimaryReplication();
-```
-
----
-
-## Monitor Replica Subscription
-
-Uses:
-
-```sql
-pg_stat_subscription
-```
-
-Shows:
-
-- subscription workers
-- latest WAL received
-- replay progress
-
-```ts
-await monitorReplicaSubscription();
-```
-
----
-
-## Monitor Replication Slots
-
-Uses:
-
-```sql
-pg_replication_slots
-```
-
-Shows:
-
-- active slots
-- WAL retention
-- flush progress
-
-```ts
-await monitorReplicationSlots();
-```
-
----
-
-# Testing Replication
-
-The script inserts data into PRIMARY and verifies it exists in REPLICA.
-
-```ts
-await testReplication();
-```
-
-Example:
-
-```sql
-INSERT INTO users(name, balance)
-VALUES ('Sujith', 100);
-```
-
-Then replica is queried to confirm synchronization.
-
----
-
-# Production Considerations
-
-## Replication Lag
-
-Replica may lag behind primary depending on:
-
-- network latency
-- WAL generation rate
-- replica performance
-
----
-
-## WAL Growth Risk
-
-Replication slots retain WAL files until consumed.
-
-If replica stops consuming WAL:
-
-- disk usage can grow indefinitely
-- PostgreSQL storage may fill up
-
-Always monitor:
-
-```sql
-SELECT * FROM pg_replication_slots;
-```
-
----
-
-## Schema Changes
-
-DDL changes are NOT replicated automatically.
-
-You must manually apply schema changes on:
-
-- PRIMARY
-- REPLICA
-
-Example:
-
-```sql
-ALTER TABLE users
-ADD COLUMN email TEXT;
-```
-
-Run on both databases.
-
----
-
-# Monitoring Queries
-
-## PRIMARY
-
-```sql
-SELECT * FROM pg_stat_replication;
-```
-
-```sql
-SELECT * FROM pg_replication_slots;
-```
-
----
-
-## REPLICA
-
-```sql
-SELECT * FROM pg_stat_subscription;
-```
-
----
-
-# Common Errors
-
----
-
-## Publication Already Exists
-
-```text
-publication already exists
-```
-
-Safe to ignore.
-
----
-
-## Subscription Already Exists
-
-```text
-subscription already exists
-```
-
-Safe to ignore.
-
----
-
-## Connection Refused
-
-Check:
-
-- PostgreSQL running
-- port exposed
-- pg_hba.conf configuration
-
----
-
-## Permission Denied
-
-Ensure replication user has:
-
-```sql
-REPLICATION
-LOGIN
-```
-
----
-
-# Recommended Production Setup
-
-- Dedicated replication user
-- SSL connections
-- Monitoring alerts
-- WAL retention monitoring
-- Automatic failover strategy
-- Backup strategy
-- Connection pooling
-
----
-
-# Example Replication Flow
-
-```text
-PRIMARY DB
-   │
-   ├── INSERT users
-   ├── UPDATE balance
-   └── DELETE transaction
-            │
-            ▼
-         WAL
-            ▼
-     PUBLICATION
-            ▼
-      SUBSCRIPTION
-            ▼
-       REPLICA DB
-```
-
----
-
-# Tech Stack
-
-- Node.js
-- TypeScript
-- PostgreSQL
-- pg (node-postgres)
-
----
-
-# License
-
-MIT
+## 🧪 How to Test Replication
+
+1. **Register & Log In**: Go to the UI and create an account, then sign in.
+2. **Create Target Tables**: Connect to both the Primary database (port 5432) and the Replica database (port 5433), then run:
+   ```sql
+   CREATE TABLE IF NOT EXISTS users (
+       id SERIAL PRIMARY KEY,
+       name VARCHAR(100),
+       balance INT
+   );
+   ```
+3. **Configure via UI**: 
+   * Select **Configure New Setup** on the UI.
+   * Input the connection credentials for Primary and Replica databases.
+   * Click **Initiate Setup**.
+4. **Insert Data**: Insert a row on the **Primary** database:
+   ```sql
+   INSERT INTO users (name, balance) VALUES ('Sujith', 100);
+   ```
+5. **Verify**: Check the **Replica** database. You will see the row has automatically replicated!
+   ```sql
+   SELECT * FROM users;
+   ```
