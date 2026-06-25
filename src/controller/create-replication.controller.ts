@@ -3,7 +3,8 @@ import pg, { Client } from "pg";
 import z from "zod";
 
 import { isEligibleForReplication } from "../service/checkEligible-for-replication.service";
-import { pool } from "../db/db";
+import { pdb } from "../db/db";
+import { replicationSetups, replicaNodes } from "../schema/schema";
 import { encrypt } from "../utils/crypto";
 import type { AuthenticatedUser } from "../middleware/auth.middleware";
 
@@ -178,23 +179,19 @@ export const CreateReplicationController = async (c: Context) => {
       const encryptedPrimaryPassword = encrypt(body.primary.password);
 
       // Save Primary Setup
-      const setupResult = await pool.query(
-        `INSERT INTO replication_setups 
-         (user_id, publication_name, primary_host, primary_port, primary_user, primary_password, primary_database)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING id`,
-        [
-          user.id,
-          body.publication_name,
-          body.primary.host,
-          body.primary.port,
-          body.primary.user,
-          encryptedPrimaryPassword,
-          body.primary.database,
-        ]
-      );
+      const setupResult = await pdb.insert(replicationSetups).values({
+        userId: user.id,
+        publicationName: body.publication_name,
+        primaryHost: body.primary.host,
+        primaryPort: body.primary.port,
+        primaryUser: body.primary.user,
+        primaryPassword: encryptedPrimaryPassword,
+        primaryDatabase: body.primary.database,
+      }).returning({
+        id: replicationSetups.id,
+      });
 
-      const setupId = setupResult.rows[0].id;
+      const setupId = setupResult[0]!.id;
 
       // Save Replica Nodes
       for (const replica of body.secondary) {
@@ -203,20 +200,15 @@ export const CreateReplicationController = async (c: Context) => {
           .toLowerCase()
           .replace(/[^a-z0-9_]/g, "_");
 
-        await pool.query(
-          `INSERT INTO replica_nodes
-           (setup_id, subscription_name, host, port, "user", password, database)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-          [
-            setupId,
-            subscriptionName,
-            replica.host,
-            replica.port,
-            replica.user,
-            encryptedReplicaPassword,
-            replica.database,
-          ]
-        );
+        await pdb.insert(replicaNodes).values({
+          setupId,
+          subscriptionName,
+          host: replica.host,
+          port: replica.port,
+          user: replica.user,
+          password: encryptedReplicaPassword,
+          database: replica.database,
+        });
       }
 
       return c.json({

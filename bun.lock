@@ -5,6 +5,7 @@
       "name": "replication",
       "dependencies": {
         "@magadhtech/mds-schema": "1.0.300",
+        "@t3-oss/env-core": "^0.13.11",
         "@types/pg": "^8.20.0",
         "bcryptjs": "^3.0.3",
         "drizzle-kit": "^0.31.10",
@@ -84,6 +85,8 @@
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
 
     "@magadhtech/mds-schema": ["@magadhtech/mds-schema@1.0.300", "https://npm.pkg.github.com/download/@magadhtech/mds-schema/1.0.300/7f2b618029d4ffdd4692fcbc32af079f7875ebc0", { "dependencies": { "bun-types": "^1.3.5", "dotenv": "^17.2.3", "pg": "^8.16.3", "typescript": "^5.9.3" }, "peerDependencies": { "drizzle-orm": "^0.45.1" } }, "sha512-ezKYv7G0q9uZ25uisOmjjCAp87C8AVWTtCchLCagO2dY/93h39TbJ9UvF3Xe9o9QNyNBCt/GaIAN7rYSdecuHg=="],
+
+    "@t3-oss/env-core": ["@t3-oss/env-core@0.13.11", "", { "peerDependencies": { "arktype": "^2.1.0", "typescript": ">=5.0.0", "valibot": "^1.0.0-beta.7 || ^1.0.0", "zod": "^3.24.0 || ^4.0.0" }, "optionalPeers": ["arktype", "typescript", "valibot", "zod"] }, "sha512-sM7GYY+KL7H/Hl0BE0inWfk3nRHZOLhmVn7sHGxaZt9FAR6KqREXAE+6TqKfiavfXmpRxO/OZ2QgKRd+oiBYRQ=="],
 
     "@types/bcryptjs": ["@types/bcryptjs@3.0.0", "", { "dependencies": { "bcryptjs": "*" } }, "sha512-WRZOuCuaz8UcZZE4R5HXTco2goQSI2XxjGY3hbM/xDvwmqFWd4ivooImsMx65OKM6CtNKbnZ5YL+YwAwK7c1dg=="],
 

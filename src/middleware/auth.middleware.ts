@@ -1,7 +1,8 @@
 import type { Context, Next } from "hono";
 import jwt from "jsonwebtoken";
+import { env } from "../config/env";
 
-const JWT_SECRET = process.env.JWT_SECRET || "default-jwt-secret-key-987654";
+const JWT_SECRET = env.JWT_SECRET;
 
 export interface AuthenticatedUser {
   id: string;

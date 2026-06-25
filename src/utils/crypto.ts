@@ -1,9 +1,9 @@
 import crypto from "crypto";
 
+import { env } from "../config/env";
+
 // 32-byte key for AES-256
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY 
-  ? crypto.createHash('sha256').update(process.env.ENCRYPTION_KEY).digest()
-  : crypto.createHash('sha256').update("default-secret-replication-key-123456").digest();
+const ENCRYPTION_KEY = crypto.createHash('sha256').update(env.ENCRYPTION_KEY).digest();
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;

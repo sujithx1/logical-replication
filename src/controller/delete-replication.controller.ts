@@ -1,7 +1,9 @@
 import type { Context } from "hono";
 import pg, { Client } from "pg";
 import z from "zod";
-import { pool } from "../db/db";
+import { pdb } from "../db/db";
+import { replicationSetups, replicaNodes } from "../schema/schema";
+import { eq } from "drizzle-orm";
 import { decrypt } from "../utils/crypto";
 import type { AuthenticatedUser } from "../middleware/auth.middleware";
 
@@ -31,28 +33,28 @@ export const DeleteReplicationController = async (c: Context) => {
   const { setup_id } = parsed.data;
 
   try {
-    // Fetch setup details from database
-    const setupCheck = await pool.query(
-      "SELECT * FROM replication_setups WHERE id = $1",
-      [setup_id]
-    );
+    // Fetch setup details from database using Drizzle
+    const setupsList = await pdb
+      .select()
+      .from(replicationSetups)
+      .where(eq(replicationSetups.id, setup_id))
+      .limit(1);
 
-    const setup = setupCheck.rows[0];
+    const setup = setupsList[0];
     if (!setup) {
       return c.json({ error: "Replication setup not found" }, 404);
     }
 
     // Authorization check
-    if (setup.user_id !== user.id && user.role !== "admin") {
+    if (setup.userId !== user.id && user.role !== "admin") {
       return c.json({ error: "Forbidden: Access denied" }, 403);
     }
 
-    // Fetch all replicas
-    const replicasCheck = await pool.query(
-      "SELECT * FROM replica_nodes WHERE setup_id = $1",
-      [setup_id]
-    );
-    const replicaNodesList = replicasCheck.rows;
+    // Fetch all replicas using Drizzle
+    const replicaNodesList = await pdb
+      .select()
+      .from(replicaNodes)
+      .where(eq(replicaNodes.setupId, setup_id));
 
     // 1. Delete subscriptions on all replicas first
     await Promise.all(
@@ -74,18 +76,18 @@ export const DeleteReplicationController = async (c: Context) => {
           // Check if subscription exists
           const subCheck = await replica.query(
             `SELECT 1 FROM pg_subscription WHERE subname = $1`,
-            [rep.subscription_name],
+            [rep.subscriptionName],
           );
 
           if (subCheck.rowCount && subCheck.rowCount > 0) {
             // Disable first (required before dropping)
-            await replica.query(`ALTER SUBSCRIPTION ${rep.subscription_name} DISABLE`);
+            await replica.query(`ALTER SUBSCRIPTION ${rep.subscriptionName} DISABLE`);
             // Drop subscription
-            await replica.query(`DROP SUBSCRIPTION ${rep.subscription_name}`);
-            console.log(`Subscription ${rep.subscription_name} dropped successfully`);
+            await replica.query(`DROP SUBSCRIPTION ${rep.subscriptionName}`);
+            console.log(`Subscription ${rep.subscriptionName} dropped successfully`);
           }
         } catch (err: any) {
-          console.error(`Failed to drop subscription ${rep.subscription_name}:`, err);
+          console.error(`Failed to drop subscription ${rep.subscriptionName}:`, err);
           throw err;
         } finally {
           await replica.end();
@@ -94,13 +96,13 @@ export const DeleteReplicationController = async (c: Context) => {
     );
 
     // 2. Drop publication on primary
-    const primaryPassword = decrypt(setup.primary_password);
+    const primaryPassword = decrypt(setup.primaryPassword);
     const primaryConfig = {
-      host: setup.primary_host,
-      port: setup.primary_port,
-      user: setup.primary_user,
+      host: setup.primaryHost,
+      port: setup.primaryPort,
+      user: setup.primaryUser,
       password: primaryPassword,
-      database: setup.primary_database,
+      database: setup.primaryDatabase,
     };
 
     const primary = new Client(primaryConfig);
@@ -109,19 +111,19 @@ export const DeleteReplicationController = async (c: Context) => {
 
       const pubCheck = await primary.query(
         `SELECT 1 FROM pg_publication WHERE pubname = $1`,
-        [setup.publication_name],
+        [setup.publicationName],
       );
 
       if (pubCheck.rowCount && pubCheck.rowCount > 0) {
-        await primary.query(`DROP PUBLICATION ${setup.publication_name}`);
-        console.log(`Publication ${setup.publication_name} dropped successfully`);
+        await primary.query(`DROP PUBLICATION ${setup.publicationName}`);
+        console.log(`Publication ${setup.publicationName} dropped successfully`);
       }
     } finally {
       await primary.end();
     }
 
-    // 3. Delete setup from database (Cascade deletes replica nodes)
-    await pool.query("DELETE FROM replication_setups WHERE id = $1", [setup_id]);
+    // 3. Delete setup from database using Drizzle (Cascade deletes replica nodes)
+    await pdb.delete(replicationSetups).where(eq(replicationSetups.id, setup_id));
 
     return c.json({
       success: true,

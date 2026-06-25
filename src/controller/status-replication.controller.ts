@@ -1,7 +1,9 @@
 import type { Context } from "hono";
 import pg, { Client } from "pg";
 import z from "zod";
-import { pool } from "../db/db";
+import { pdb } from "../db/db";
+import { replicationSetups, replicaNodes } from "../schema/schema";
+import { eq } from "drizzle-orm";
 import { decrypt } from "../utils/crypto";
 import type { AuthenticatedUser } from "../middleware/auth.middleware";
 
@@ -23,37 +25,37 @@ export const GetReplicationStatusController = async (c: Context) => {
   const { setup_id } = parsed.data;
 
   try {
-    // Fetch setup details from database
-    const setupCheck = await pool.query(
-      "SELECT * FROM replication_setups WHERE id = $1",
-      [setup_id]
-    );
+    // Fetch setup details from database using Drizzle
+    const setupsList = await pdb
+      .select()
+      .from(replicationSetups)
+      .where(eq(replicationSetups.id, setup_id))
+      .limit(1);
 
-    const setup = setupCheck.rows[0];
+    const setup = setupsList[0];
     if (!setup) {
       return c.json({ error: "Replication setup not found" }, 404);
     }
 
     // Authorization check: Must be owner or admin
-    if (setup.user_id !== user.id && user.role !== "admin") {
+    if (setup.userId !== user.id && user.role !== "admin") {
       return c.json({ error: "Forbidden: Access denied" }, 403);
     }
 
-    // Fetch replica nodes
-    const replicasCheck = await pool.query(
-      "SELECT * FROM replica_nodes WHERE setup_id = $1",
-      [setup_id]
-    );
-    const replicaNodesList = replicasCheck.rows;
+    // Fetch replica nodes using Drizzle
+    const replicaNodesList = await pdb
+      .select()
+      .from(replicaNodes)
+      .where(eq(replicaNodes.setupId, setup_id));
 
     // Decrypt Primary Credentials
-    const primaryPassword = decrypt(setup.primary_password);
+    const primaryPassword = decrypt(setup.primaryPassword);
     const primaryConfig = {
-      host: setup.primary_host,
-      port: setup.primary_port,
-      user: setup.primary_user,
+      host: setup.primaryHost,
+      port: setup.primaryPort,
+      user: setup.primaryUser,
       password: primaryPassword,
-      database: setup.primary_database,
+      database: setup.primaryDatabase,
     };
 
     const primary = new Client(primaryConfig);
@@ -115,7 +117,7 @@ export const GetReplicationStatusController = async (c: Context) => {
                 latest_end_time
               FROM pg_stat_subscription
               WHERE subname = $1;
-            `, [rep.subscription_name]);
+            `, [rep.subscriptionName]);
 
             const subscriptionDetails = await replica.query(`
               SELECT
@@ -126,11 +128,11 @@ export const GetReplicationStatusController = async (c: Context) => {
                 subpublications
               FROM pg_subscription
               WHERE subname = $1;
-            `, [rep.subscription_name]);
+            `, [rep.subscriptionName]);
 
             return {
               database: rep.database,
-              subscription_name: rep.subscription_name,
+              subscription_name: rep.subscriptionName,
               status: statSubscription.rows[0] || null,
               details: subscriptionDetails.rows[0] || null,
               connected: true,
@@ -138,7 +140,7 @@ export const GetReplicationStatusController = async (c: Context) => {
           } catch (err: any) {
             return {
               database: rep.database,
-              subscription_name: rep.subscription_name,
+              subscription_name: rep.subscriptionName,
               error: err.message,
               connected: false,
             };

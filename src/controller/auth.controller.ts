@@ -2,9 +2,12 @@ import type { Context } from "hono";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import z from "zod";
-import { pool } from "../db/db";
+import { pdb } from "../db/db";
+import { users } from "../schema/schema";
+import { eq } from "drizzle-orm";
+import { env } from "../config/env";
 
-const JWT_SECRET = process.env.JWT_SECRET || "default-jwt-secret-key-987654";
+const JWT_SECRET = env.JWT_SECRET;
 
 const registerSchema = z.object({
   username: z.string().min(3),
@@ -28,8 +31,8 @@ export const RegisterController = async (c: Context) => {
 
   try {
     // Check if user exists
-    const userCheck = await pool.query("SELECT 1 FROM users WHERE username = $1", [username]);
-    if (userCheck.rowCount && userCheck.rowCount > 0) {
+    const existingUsers = await pdb.select().from(users).where(eq(users.username, username)).limit(1);
+    if (existingUsers.length > 0) {
       return c.json({ error: "Username is already taken" }, 400);
     }
 
@@ -37,14 +40,20 @@ export const RegisterController = async (c: Context) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Insert user
-    const result = await pool.query(
-      `INSERT INTO users (username, phone_number, password, role)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, username, phone_number, role, created_at`,
-      [username, phone_number, passwordHash, role]
-    );
+    const result = await pdb.insert(users).values({
+      username,
+      phoneNumber: phone_number,
+      password: passwordHash,
+      role,
+    }).returning({
+      id: users.id,
+      username: users.username,
+      phoneNumber: users.phoneNumber,
+      role: users.role,
+      createdAt: users.createdAt,
+    });
 
-    const user = result.rows[0];
+    const user = result[0];
     return c.json({ success: true, user });
   } catch (err: any) {
     console.error(err);
@@ -61,9 +70,11 @@ export const LoginController = async (c: Context) => {
   const { username, password } = parsed.data;
 
   try {
-    const result = await pool.query("SELECT * FROM users WHERE username = $1", [username]);
-    const user = result.rows[0];
+    const existingUsers = await pdb.select().from(users).where(eq(users.username, username)).limit(1);
+    const user = existingUsers[0];
 
+    console.log("user ", user);
+    
     if (!user) {
       return c.json({ error: "Invalid username or password" }, 401);
     }
@@ -86,7 +97,7 @@ export const LoginController = async (c: Context) => {
       user: {
         id: user.id,
         username: user.username,
-        phone_number: user.phone_number,
+        phone_number: user.phoneNumber,
         role: user.role,
       },
     });
