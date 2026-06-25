@@ -12,7 +12,9 @@ app.use("*", cors());
 
 app.route("/api/replica", api);
 
-app.onError((err, c) => errorHandler(err, c));
+app.onError((err, c) => errorHandler(err, c))
+   
+console.log("listening on port 3000");
 Bun.serve({
   port: 3000,
   fetch(req) {

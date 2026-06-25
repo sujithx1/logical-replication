@@ -179,7 +179,7 @@ export const CreateReplicationController = async (c: Context) => {
     });
   } catch (err: any) {
     console.error(err);
-
+    
     return c.json(
       {
         error: err.message || "Failed to create replication",
