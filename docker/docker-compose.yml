@@ -11,7 +11,7 @@ services:
     environment:
       POSTGRES_USER: sujith
       POSTGRES_PASSWORD: Sujith@123
-      POSTGRES_DB: mds
+      POSTGRES_DB: primary_db
 
     ports:
       - "5432:5432"
@@ -35,7 +35,7 @@ services:
     environment:
       POSTGRES_USER: sujith
       POSTGRES_PASSWORD: Sujith@123
-      POSTGRES_DB: replica_mds
+      POSTGRES_DB: replica_db
 
     ports:
       - "5433:5432"

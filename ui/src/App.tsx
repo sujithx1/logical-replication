@@ -20,6 +20,7 @@ import PostgresConfigPreview from "@/components/replication/config-preview";
 
 import { generateDockerCompose } from "@/lib/docker";
 import { generatePostgresConfig } from "@/lib/pg-config";
+import { api } from "@/lib/api";
 import type {
   DbConfig,
   ReplicaNode,
@@ -31,7 +32,7 @@ const defaultPrimary: DbConfig = {
   port: 5432,
   user: "sujith",
   password: "Sujith@123",
-  database: "mds",
+  database: "primary_db",
 };
 
 const createReplica = (): ReplicaNode => ({
@@ -40,11 +41,9 @@ const createReplica = (): ReplicaNode => ({
   port: 5433,
   user: "sujith",
   password: "Sujith@123",
-  database: "replica_mds",
+  database: "replica_db",
   subscription_name: "pg_logical_replication",
 });
-
-const API_BASE = "http://localhost:3000/api/replica";
 
 export default function App() {
   const [type, setType] = useState<ReplicationType>("logical");
@@ -105,23 +104,17 @@ export default function App() {
     clearAlerts();
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          primary,
-          secondary: getSecondaryConfigs(),
-          publication_name: publicationName,
-        }),
+      await api.post("/create", {
+        primary,
+        secondary: getSecondaryConfigs(),
+        publication_name: publicationName,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to create replication setup");
       
       setSuccess("Logical replication setup created successfully!");
       // Automatically refresh status after creation
       await handleGetStatus();
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+      setError(err.response?.data?.error || err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -131,22 +124,16 @@ export default function App() {
     clearAlerts();
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          primary,
-          secondary: getSecondaryConfigs(),
-          publication_name: publicationName,
-        }),
+      const response = await api.post("/status", {
+        primary,
+        secondary: getSecondaryConfigs(),
+        publication_name: publicationName,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to fetch status");
       
-      setStatusData(data);
+      setStatusData(response.data);
       setSuccess("Replication status updated.");
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+      setError(err.response?.data?.error || err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -159,22 +146,16 @@ export default function App() {
     clearAlerts();
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/delete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          primary,
-          secondary: getSecondaryConfigs(),
-          publication_name: publicationName,
-        }),
+      await api.post("/delete", {
+        primary,
+        secondary: getSecondaryConfigs(),
+        publication_name: publicationName,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to delete replication setup");
       
       setSuccess("Replication setup torn down successfully!");
       setStatusData(null);
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+      setError(err.response?.data?.error || err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -185,22 +166,16 @@ export default function App() {
     setLoading(true);
     try {
       const { id, ...replicaConfig } = replica;
-      const response = await fetch(`${API_BASE}/update-subscription`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          replica: replicaConfig,
-          action,
-        }),
+      await api.post("/update-subscription", {
+        replica: replicaConfig,
+        action,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || `Failed to ${action} subscription`);
       
       setSuccess(`Subscription ${action}d successfully on ${replica.database}`);
       // Refresh status to show the updated state
       await handleGetStatus();
     } catch (err: any) {
-      setError(err.message || "An unexpected error occurred");
+      setError(err.response?.data?.error || err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
