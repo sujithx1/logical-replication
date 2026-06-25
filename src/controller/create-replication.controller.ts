@@ -3,6 +3,9 @@ import pg, { Client } from "pg";
 import z from "zod";
 
 import { isEligibleForReplication } from "../service/checkEligible-for-replication.service";
+import { pool } from "../db/db";
+import { encrypt } from "../utils/crypto";
+import type { AuthenticatedUser } from "../middleware/auth.middleware";
 
 const createReplicationSchema = z.object({
   primary: z.object({
@@ -27,6 +30,11 @@ const createReplicationSchema = z.object({
 });
 
 export const CreateReplicationController = async (c: Context) => {
+  const user = c.get("user") as AuthenticatedUser;
+  if (!user) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
   const parsed = await createReplicationSchema.safeParseAsync(
     await c.req.json(),
   );
@@ -42,7 +50,6 @@ export const CreateReplicationController = async (c: Context) => {
 
   const body = parsed.data;
 
-  console.log("replication body", body);
   // ----------------------------------------
   // VALIDATE SQL IDENTIFIER NAMES
   // ----------------------------------------
@@ -105,7 +112,6 @@ export const CreateReplicationController = async (c: Context) => {
     await primary.connect();
 
     // ----------------------------------------
-    // ----------------------------------------
     // CREATE PUBLICATION (IF NOT EXISTS)
     // ----------------------------------------
 
@@ -166,9 +172,56 @@ export const CreateReplicationController = async (c: Context) => {
         }
       }
 
+      // ----------------------------------------
+      // SAVE TO DATABASE
+      // ----------------------------------------
+      const encryptedPrimaryPassword = encrypt(body.primary.password);
+
+      // Save Primary Setup
+      const setupResult = await pool.query(
+        `INSERT INTO replication_setups 
+         (user_id, publication_name, primary_host, primary_port, primary_user, primary_password, primary_database)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING id`,
+        [
+          user.id,
+          body.publication_name,
+          body.primary.host,
+          body.primary.port,
+          body.primary.user,
+          encryptedPrimaryPassword,
+          body.primary.database,
+        ]
+      );
+
+      const setupId = setupResult.rows[0].id;
+
+      // Save Replica Nodes
+      for (const replica of body.secondary) {
+        const encryptedReplicaPassword = encrypt(replica.password);
+        const subscriptionName = `sub_${replica.database}`
+          .toLowerCase()
+          .replace(/[^a-z0-9_]/g, "_");
+
+        await pool.query(
+          `INSERT INTO replica_nodes
+           (setup_id, subscription_name, host, port, "user", password, database)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            setupId,
+            subscriptionName,
+            replica.host,
+            replica.port,
+            replica.user,
+            encryptedReplicaPassword,
+            replica.database,
+          ]
+        );
+      }
+
       return c.json({
         success: true,
-        message: "Replication setup completed successfully",
+        message: "Replication setup completed and saved successfully",
       });
     } catch (subscriptionError: any) {
       console.log("Rolling back replication setup due to subscription failure...");
