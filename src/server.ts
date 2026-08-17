@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { api } from "./api";
 import { errorHandler } from "./middleware/error_handler";
-import { initDb } from "./db/init";
+import { checkDbConnection } from "./db/init";
 
 const app = new Hono();
 app.get("/", (c) => {
@@ -16,7 +16,8 @@ app.route("/api/replica", api);
 
 app.onError((err, c) => errorHandler(err, c));
 
-// Initialize Database Tables
+// Ensure DB connection on server startup
+await checkDbConnection();
 
 console.log(`listening on port ${env.PORT}`);
 Bun.serve({
@@ -25,3 +26,4 @@ Bun.serve({
     return app.fetch(req);
   },
 });
+
