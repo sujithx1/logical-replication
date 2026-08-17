@@ -5,7 +5,9 @@
     "d-pub": "bun run src/subscription/delete.sub.ts && bun run src/publication/delete.pub.ts",
     "dev": "bun run --watch src/server.ts",
     "build": "bun build src/server.ts --outdir dist --target bun",
-    "start": "bun run dist/server.js"
+    "start": "bun run dist/server.js",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
