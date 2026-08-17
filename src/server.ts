@@ -17,10 +17,6 @@ app.route("/api/replica", api);
 app.onError((err, c) => errorHandler(err, c));
 
 // Initialize Database Tables
-initDb().catch((err) => {
-  console.error("Failed to initialize database tables:", err);
-});
-
 
 console.log(`listening on port ${env.PORT}`);
 Bun.serve({
