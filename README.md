@@ -68,7 +68,7 @@ This project automates the orchestration of publications on primary databases an
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/yourusername/logical-replication.git
+git clone https://github.com/sujithx1/logical-replication.git
 cd logical-replication
 ```
 
@@ -83,7 +83,7 @@ cp .env.example .env
 ```
 Open `.env` and configure:
 ```ini
-DATABASE_URL=postgresql://sujith:Sujith@123@localhost:5432/mds
+DATABASE_URL=postgresql://<db_user>:<db_password>@localhost:5432/<database>
 JWT_SECRET=your_jwt_secret_key_minimum_length_8
 ENCRYPTION_KEY=your_at_rest_encryption_key_minimum_length_8
 PORT=3000
