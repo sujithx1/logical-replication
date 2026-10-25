@@ -4,8 +4,10 @@ import { z } from "zod";
 export const env = createEnv({
   server: {
     DATABASE_URL: z.string(),
-    JWT_SECRET: z.string().default("default-jwt-secret-key-987654"),
-    ENCRYPTION_KEY: z.string().default("default-secret-replication-key-123456"),
+    // No fallbacks on purpose: a known default would make every session forgeable and every stored
+    // database password decryptable. Startup fails with a clear message when these are missing.
+    JWT_SECRET: z.string().min(8, "JWT_SECRET must be at least 8 characters"),
+    ENCRYPTION_KEY: z.string().min(8, "ENCRYPTION_KEY must be at least 8 characters"),
     PORT: z.coerce.number().default(3000),
   },
   clientPrefix: "PUBLIC_",
