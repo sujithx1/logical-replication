@@ -61,7 +61,7 @@ This project automates the orchestration of publications on primary databases an
 ## 🛠️ Getting Started
 
 ### Prerequisites
-* [Node.js](https://nodejs.org/) (or Bun runtime)
+* [Bun](https://bun.sh/) runtime (the scripts use `bun run`)
 * [Docker & Docker Compose](https://www.docker.com/)
 
 ---
